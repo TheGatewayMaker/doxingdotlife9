@@ -4,6 +4,7 @@ import {
   uploadPostMetadata,
   getServersList,
   updateServersList,
+  uploadPostMetadataWithThumbnail,
 } from "../utils/r2-storage";
 
 interface UploadRequest {
@@ -30,7 +31,7 @@ export const handleUpload: RequestHandler = async (req, res) => {
 
     const postId = Date.now().toString();
     const mediaFileName = mediaFile.originalname || `${Date.now()}-media`;
-    const thumbnailFileName = thumbnailFile.originalname || `${Date.now()}-thumbnail`;
+    const thumbnailFileName = `thumbnail-${Date.now()}`;
 
     try {
       const mediaUrl = await uploadMediaFile(
@@ -54,12 +55,11 @@ export const handleUpload: RequestHandler = async (req, res) => {
         country: country || "",
         city: city || "",
         server: server || "",
-        thumbnail: thumbnailUrl,
-        mediaFiles: [{ name: mediaFileName, url: mediaUrl, type: mediaFile.mimetype || "application/octet-stream" }],
+        mediaFiles: [mediaFileName],
         createdAt: new Date().toISOString(),
       };
 
-      await uploadPostMetadata(postId, postMetadata);
+      await uploadPostMetadataWithThumbnail(postId, postMetadata, thumbnailUrl);
 
       if (server && server.trim()) {
         try {
