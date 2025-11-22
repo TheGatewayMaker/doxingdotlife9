@@ -100,8 +100,8 @@ export default function UppostPanel() {
     setUploadError("");
     setUploadMessage("");
 
-    if (!title || !description || !media) {
-      setUploadError("Please fill in all required fields and select media");
+    if (!title || !description || !media || !thumbnail) {
+      setUploadError("Please fill in all required fields including thumbnail and media");
       return;
     }
 
@@ -111,6 +111,7 @@ export default function UppostPanel() {
     formData.append("country", country);
     formData.append("city", city);
     formData.append("server", server);
+    formData.append("thumbnail", thumbnail);
     formData.append("media", media);
 
     setUploading(true);
