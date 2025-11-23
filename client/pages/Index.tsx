@@ -451,15 +451,29 @@ export default function Index() {
                   <label className="text-sm font-bold text-foreground block mb-2">
                     🌍 By Country
                   </label>
-                  <input
-                    type="text"
-                    placeholder={
-                      selectedCountry ? selectedCountry : "Select country..."
-                    }
-                    value={countrySearch}
-                    onChange={(e) => setCountrySearch(e.target.value)}
-                    className="w-full px-4 py-3 bg-card border border-border hover:border-accent/50 rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm transition-all shadow-sm hover:shadow-md"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder={
+                        selectedCountry ? selectedCountry : "Select country..."
+                      }
+                      value={countrySearch}
+                      onChange={(e) => setCountrySearch(e.target.value)}
+                      className="w-full px-4 py-3 bg-card border border-border hover:border-accent/50 rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent text-sm transition-all shadow-sm hover:shadow-md pr-10"
+                    />
+                    {selectedCountry && (
+                      <button
+                        onClick={() => {
+                          setSelectedCountry("");
+                          setSelectedCity("");
+                          setCountrySearch("");
+                        }}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-accent hover:text-accent/80 transition-colors text-lg"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                   {countrySearch && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg z-50 max-h-48 overflow-y-auto shadow-lg">
                       {filteredCountries.length > 0 ? (
@@ -482,18 +496,6 @@ export default function Index() {
                         </div>
                       )}
                     </div>
-                  )}
-                  {selectedCountry && (
-                    <button
-                      onClick={() => {
-                        setSelectedCountry("");
-                        setSelectedCity("");
-                        setCountrySearch("");
-                      }}
-                      className="absolute top-3 right-3 text-accent hover:text-accent/80 transition-colors"
-                    >
-                      ✕
-                    </button>
                   )}
                 </div>
 
