@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   X,
   Maximize2,
@@ -23,8 +23,11 @@ export default function MediaViewer({
   postTitle,
 }: MediaViewerProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [imageLoadError, setImageLoadError] = useState<boolean[]>(
+    new Array(mediaFiles.length).fill(false)
+  );
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const currentMedia = mediaFiles[activeIndex];
   const isImage = currentMedia.type.startsWith("image/");
@@ -44,6 +47,30 @@ export default function MediaViewer({
     link.href = currentMedia.url;
     link.download = currentMedia.name;
     link.click();
+  };
+
+  const handleImageError = (idx: number) => {
+    const newErrors = [...imageLoadError];
+    newErrors[idx] = true;
+    setImageLoadError(newErrors);
+  };
+
+  const handleVideoFullscreen = async () => {
+    if (videoRef.current) {
+      try {
+        if (videoRef.current.requestFullscreen) {
+          await videoRef.current.requestFullscreen();
+        } else if ((videoRef.current as any).webkitRequestFullscreen) {
+          await (videoRef.current as any).webkitRequestFullscreen();
+        } else if ((videoRef.current as any).mozRequestFullScreen) {
+          await (videoRef.current as any).mozRequestFullScreen();
+        } else if ((videoRef.current as any).msRequestFullscreen) {
+          await (videoRef.current as any).msRequestFullscreen();
+        }
+      } catch (err) {
+        console.error("Error requesting fullscreen:", err);
+      }
+    }
   };
 
   if (mediaFiles.length === 0) return null;
@@ -70,15 +97,27 @@ export default function MediaViewer({
               }`}
             >
               {file.type.startsWith("image/") ? (
-                <img
-                  src={file.url}
-                  alt={file.name}
-                  className="w-full aspect-square object-cover group-hover:scale-110 transition-transform duration-300"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23333" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-size="12"%3EImage Error%3C/text%3E%3C/svg%3E';
-                  }}
-                />
+                <>
+                  {!imageLoadError[idx] ? (
+                    <img
+                      src={file.url}
+                      alt={file.name}
+                      className="w-full aspect-square object-cover group-hover:scale-110 transition-transform duration-300"
+                      onError={() => handleImageError(idx)}
+                      crossOrigin="anonymous"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full aspect-square bg-muted flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-3xl mb-2">🖼️</div>
+                        <p className="text-xs text-muted-foreground">
+                          Image Error
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : file.type.startsWith("video/") ? (
                 <div className="w-full aspect-square bg-muted flex items-center justify-center">
                   <div className="text-center">
@@ -120,20 +159,31 @@ export default function MediaViewer({
         {mediaFiles.length > 1 && (
           <div className="bg-muted rounded-lg overflow-hidden border border-border">
             <div className="relative">
-              {isImage && (
+              {isImage && !imageLoadError[activeIndex] && (
                 <img
                   src={currentMedia.url}
                   alt={currentMedia.name}
                   className="w-full max-h-96 object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="384"%3E%3Crect fill="%23333" width="800" height="384"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-size="20"%3EImage not available%3C/text%3E%3C/svg%3E';
-                  }}
+                  onError={() => handleImageError(activeIndex)}
+                  crossOrigin="anonymous"
                 />
+              )}
+
+              {isImage && imageLoadError[activeIndex] && (
+                <div className="w-full max-h-96 bg-muted flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-5xl mb-4">🖼️</div>
+                    <p className="text-muted-foreground">Image unavailable</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {currentMedia.name}
+                    </p>
+                  </div>
+                </div>
               )}
 
               {isVideo && (
                 <video
+                  ref={videoRef}
                   key={`video-${activeIndex}`}
                   controls
                   controlsList="nodownload"
@@ -142,6 +192,7 @@ export default function MediaViewer({
                   className="w-full max-h-96 object-contain bg-black"
                 >
                   <source src={currentMedia.url} type={currentMedia.type} />
+                  Your browser does not support the video tag.
                 </video>
               )}
 
@@ -157,6 +208,7 @@ export default function MediaViewer({
                     className="w-full"
                   >
                     <source src={currentMedia.url} type={currentMedia.type} />
+                    Your browser does not support the audio element.
                   </audio>
                 </div>
               )}
@@ -167,12 +219,14 @@ export default function MediaViewer({
                   <button
                     onClick={goToPrevious}
                     className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all z-10"
+                    aria-label="Previous media"
                   >
                     <ChevronLeft className="w-6 h-6" />
                   </button>
                   <button
                     onClick={goToNext}
                     className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all z-10"
+                    aria-label="Next media"
                   >
                     <ChevronRight className="w-6 h-6" />
                   </button>
@@ -196,11 +250,22 @@ export default function MediaViewer({
                 </p>
               </div>
               <div className="flex gap-2">
-                {(isImage || isVideo) && (
+                {isVideo && (
                   <button
-                    onClick={() => setIsFullscreen(true)}
+                    onClick={handleVideoFullscreen}
                     className="p-2 rounded-lg bg-card border border-border hover:border-accent text-foreground hover:text-accent transition-all"
                     title="Fullscreen"
+                    aria-label="Enter fullscreen"
+                  >
+                    <Maximize2 className="w-5 h-5" />
+                  </button>
+                )}
+                {isImage && (
+                  <button
+                    onClick={() => setLightboxOpen(true)}
+                    className="p-2 rounded-lg bg-card border border-border hover:border-accent text-foreground hover:text-accent transition-all"
+                    title="Expand"
+                    aria-label="Expand image"
                   >
                     <Maximize2 className="w-5 h-5" />
                   </button>
@@ -209,6 +274,7 @@ export default function MediaViewer({
                   onClick={handleDownload}
                   className="p-2 rounded-lg bg-card border border-border hover:border-accent text-foreground hover:text-accent transition-all"
                   title="Download"
+                  aria-label="Download media"
                 >
                   <Download className="w-5 h-5" />
                 </button>
@@ -218,8 +284,8 @@ export default function MediaViewer({
         )}
       </div>
 
-      {/* Lightbox Modal */}
-      {lightboxOpen && (
+      {/* Lightbox Modal for Images */}
+      {lightboxOpen && isImage && (
         <div
           className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
           onClick={() => setLightboxOpen(false)}
@@ -227,6 +293,7 @@ export default function MediaViewer({
           <button
             onClick={() => setLightboxOpen(false)}
             className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-50"
+            aria-label="Close lightbox"
           >
             <X className="w-8 h-8" />
           </button>
@@ -235,30 +302,22 @@ export default function MediaViewer({
             className="max-w-6xl max-h-[90vh] w-full flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {isImage && (
+            {!imageLoadError[activeIndex] ? (
               <img
                 src={currentMedia.url}
                 alt={currentMedia.name}
                 className="flex-1 object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600"%3E%3Crect fill="%23333" width="800" height="600"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-size="20"%3EImage not available%3C/text%3E%3C/svg%3E';
-                }}
-              />
-            )}
-
-            {isVideo && (
-              <video
-                key={`lightbox-video-${activeIndex}`}
-                controls
-                controlsList="nodownload"
-                preload="metadata"
+                onError={() => handleImageError(activeIndex)}
                 crossOrigin="anonymous"
-                className="flex-1 object-contain bg-black"
-                autoPlay
-              >
-                <source src={currentMedia.url} type={currentMedia.type} />
-              </video>
+              />
+            ) : (
+              <div className="flex-1 bg-muted flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-6xl mb-4">🖼️</div>
+                  <p className="text-white text-lg">Image unavailable</p>
+                  <p className="text-gray-400 mt-2">{currentMedia.name}</p>
+                </div>
+              </div>
             )}
 
             {/* Lightbox Navigation */}
@@ -270,6 +329,7 @@ export default function MediaViewer({
                     goToPrevious();
                   }}
                   className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-all"
+                  aria-label="Previous image"
                 >
                   <ChevronLeft className="w-8 h-8" />
                 </button>
@@ -279,6 +339,7 @@ export default function MediaViewer({
                     goToNext();
                   }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full transition-all"
+                  aria-label="Next image"
                 >
                   <ChevronRight className="w-8 h-8" />
                 </button>
@@ -300,39 +361,12 @@ export default function MediaViewer({
                 }}
                 className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
                 title="Download"
+                aria-label="Download image"
               >
                 <Download className="w-5 h-5" />
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Fullscreen Video Modal */}
-      {isFullscreen && isVideo && (
-        <div
-          className="fixed inset-0 bg-black z-50 flex items-center justify-center"
-          onClick={() => setIsFullscreen(false)}
-        >
-          <button
-            onClick={() => setIsFullscreen(false)}
-            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-50"
-          >
-            <X className="w-8 h-8" />
-          </button>
-
-          <video
-            key={`fullscreen-video-${activeIndex}`}
-            controls
-            controlsList="nodownload"
-            preload="metadata"
-            crossOrigin="anonymous"
-            className="w-full h-full object-contain"
-            autoPlay
-            onClick={(e) => e.stopPropagation()}
-          >
-            <source src={currentMedia.url} type={currentMedia.type} />
-          </video>
         </div>
       )}
     </>
